@@ -115,8 +115,8 @@ int* getVecList(PBLOCK pBlockList, int count)
 		return NULL;
 
 	int up=0,down=0,left=0,right=0;
-	int mh = BLOCK_WIDTH*105*3*255/2;
-	int mw = BLOCK_HEIGHT*28*3*255/2;
+	//int mh = BLOCK_WIDTH*105*3*255/2;
+	//int mw = BLOCK_HEIGHT*28*3*255/2;
 	int* vl = new int[count];
 	memset((char*)vl, 0, count*sizeof(int));
 	for (int c=0; c<count; c++)
@@ -127,16 +127,36 @@ int* getVecList(PBLOCK pBlockList, int count)
 			for (int w=0; w<BLOCK_WIDTH; w++)
 			{
 				int gray_pic = pBlockList[c].pixel[h][w].rgbBlue + pBlockList[c].pixel[h][w].rgbGreen + pBlockList[c].pixel[h][w].rgbRed;
-				if (h>7) down+=gray_pic*(h-7.5);
-				else up+=gray_pic*(h-7.5);
-				if (w>3) right+=gray_pic*(w-3.5);
-				else left = left + gray_pic*(w-3.5);
+				if (h > 7)
+				{
+					if (w > 3)
+						down += gray_pic*(h - 7.5)*(w - 3.5);
+					else
+						up += gray_pic*(h - 7.5)*(3.5 - w);
+				}
+				else
+				{
+					if (w > 3)
+						left += gray_pic*(7.5 - h)*(w - 3.5);
+					else
+						right += gray_pic*(7.5 - h)*(3.5 - w);
+				}
+
+				//if (h>7) down+=gray_pic*(h-7.5);
+				//else up+=gray_pic*(h-7.5);
+				//if (w>3) right+=gray_pic*(w-3.5);
+				//else left = left + gray_pic*(w-3.5);
 			}
 		}
-		up = up*(255.0/mh);
-		down = down*(255.0/mh);
-		left = left*(255.0/mw);
-		right = right*(255.0/mw);
+		//up = up*(255.0/mh);
+		//down = down*(255.0/mh);
+		//left = left*(255.0/mw);
+		//right = right*(255.0/mw);
+		int max = 149926;
+		up = up*(255.0 / max);
+		down = down*(255.0 / max);
+		left = left*(255.0 / max);
+		right = right*(255.0 / max);
 		vl[c] = (up&0xff) + ((down&0xff)<<8) + ((left&0xff)<<16) + ((right&0xff)<<24);
 	}
 
@@ -150,8 +170,8 @@ int getVecMatchValue(int vec1,int vec2)
 	int tmp2 = abs(cvec1[1]-cvec2[1]);
 	int tmp3 = abs(cvec1[2]-cvec2[2]);
 	int tmp4 = abs(cvec1[3]-cvec2[3]);
-	int avg = (tmp1+tmp2+tmp3+tmp4)/4;
-	int v = abs(avg-tmp1)+abs(avg-tmp2)+abs(avg-tmp3)+abs(avg-tmp4);
+	int avg = (tmp1*tmp1+tmp2*tmp2+tmp3*tmp3+tmp4*tmp4)/4;
+	int v = abs(avg-tmp1*tmp1)+abs(avg-tmp2*tmp2)+abs(avg-tmp3*tmp3)+abs(avg-tmp4*tmp4);
 	return v;
 }
 
@@ -173,10 +193,12 @@ int* getGrayList(PBLOCK pBlockList, int count, int start_gray, int end_gray)
 			for (int w=0; w<BLOCK_WIDTH; w++)
 			{
 				gray = (pBlockList[c].pixel[h][w].rgbBlue + pBlockList[c].pixel[h][w].rgbGreen + pBlockList[c].pixel[h][w].rgbRed)/3;
+
 				gray = gray*((end_gray-start_gray)/255.0)+start_gray;// 控制灰度值在（start_gray~end_gray）之间
 				gl[c] += gray;
 			}
 		}
+		gl[c] /= (BLOCK_HEIGHT - 2)*BLOCK_WIDTH;
 	}
 	return gl;
 }
@@ -240,7 +262,9 @@ char matchChar(PBLOCK pBlock)
 
 	// match gray
 	int mcount = 3;
-	int* gray = getGrayList(pBlock,1,148,255);
+	int* gray = getGrayList(pBlock,1,147,255);
+	if (gray[0] > 240)
+		gray[0] = 255;
 	int* gray_pos_list = matchGray(abc_gray,CHAR_COUNT,gray[0],mcount);
 
 	// match vector 
