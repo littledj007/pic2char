@@ -251,3 +251,5 @@ paket-files/
 .idea/
 *.sln.iml
 /output
+/pic2char/cat3.txt
+/pic2char/cat3.bmp

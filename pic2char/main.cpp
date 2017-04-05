@@ -62,12 +62,21 @@ int bmpHeight = 0;//图像的高
 RGBQUAD *pColorTable = NULL;//颜色表指针  
 int biBitCount = 0;//图像类型，每像素位数  
 
-char abc[] = {	'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
-	'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-	'0','1','2','3','4','5','6','7','8','9',
-	'~','`','!','@','#','$','%','^','&','*','(',')','_','+','-','=','{','}','|','[',']','\\',':','\"',';','\'','<','>','?',',','.','/',' '};
-int* abc_gray = NULL;
-int* abc_vec = NULL;
+PBLOCK pBlock_abc = {};
+
+char abc[] = { 'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+'0','1','2','3','4','5','6','7','8','9',
+'~','`','!','@','#','$','%','^','&','*','(',')','_','+','-','=','{','}','|','[',']','\\',':','\"',';','\'','<','>','?',',','.','/',' ' };
+
+char abc_s[] = { 'x', 'O', 'X', 'v', '0', '8',
+'~', '`', '#', '*', '.', '\\', '/', ':',  '^', '_', '+', '|', ' '
+};
+
+unsigned int ch_count;
+int abc_i[CHAR_COUNT+1] = { -1 };
+int abc_gray[CHAR_COUNT+1];
+int abc_vec[CHAR_COUNT+1];
 
 int getMinPos(int* valueList, int count)
 {
@@ -126,7 +135,9 @@ int* getVecList(PBLOCK pBlockList, int count)
 		{
 			for (int w=0; w<BLOCK_WIDTH; w++)
 			{
-				int gray_pic = pBlockList[c].pixel[h][w].rgbBlue + pBlockList[c].pixel[h][w].rgbGreen + pBlockList[c].pixel[h][w].rgbRed;
+				int gray_pic = pBlockList[c].pixel[h][w].rgbBlue + 
+					pBlockList[c].pixel[h][w].rgbGreen + 
+					pBlockList[c].pixel[h][w].rgbRed;
 				if (h > 7)
 				{
 					if (w > 3)
@@ -166,12 +177,12 @@ int getVecMatchValue(int vec1,int vec2)
 {
 	char* cvec1 = (char*)&vec1;
 	char* cvec2 = (char*)&vec2;
-	int tmp1 = abs(cvec1[0]-cvec2[0]);
-	int tmp2 = abs(cvec1[1]-cvec2[1]);
-	int tmp3 = abs(cvec1[2]-cvec2[2]);
-	int tmp4 = abs(cvec1[3]-cvec2[3]);
-	int avg = (tmp1*tmp1+tmp2*tmp2+tmp3*tmp3+tmp4*tmp4)/4;
-	int v = abs(avg-tmp1*tmp1)+abs(avg-tmp2*tmp2)+abs(avg-tmp3*tmp3)+abs(avg-tmp4*tmp4);
+	int tmp1 = pow(abs(cvec1[0]-cvec2[0]),2);
+	int tmp2 = pow(abs(cvec1[1]-cvec2[1]),2);
+	int tmp3 = pow(abs(cvec1[2]-cvec2[2]),2);
+	int tmp4 = pow(abs(cvec1[3]-cvec2[3]),2);
+	int v = abs(tmp1 - tmp2) + abs(tmp1 - tmp3) + abs(tmp1 - tmp4) +
+		abs(tmp2 - tmp3) + abs(tmp2 - tmp4) + abs(tmp3 - tmp4);
 	return v;
 }
 
@@ -192,7 +203,9 @@ int* getGrayList(PBLOCK pBlockList, int count, int start_gray, int end_gray)
 		{
 			for (int w=0; w<BLOCK_WIDTH; w++)
 			{
-				gray = (pBlockList[c].pixel[h][w].rgbBlue + pBlockList[c].pixel[h][w].rgbGreen + pBlockList[c].pixel[h][w].rgbRed)/3;
+				gray = (pBlockList[c].pixel[h][w].rgbBlue + 
+					pBlockList[c].pixel[h][w].rgbGreen + 
+					pBlockList[c].pixel[h][w].rgbRed)/3;
 
 				gray = gray*((end_gray-start_gray)/255.0)+start_gray;// 控制灰度值在（start_gray~end_gray）之间
 				gl[c] += gray;
@@ -261,11 +274,11 @@ char matchChar(PBLOCK pBlock)
 		return ' ';
 
 	// match gray
-	int mcount = 3;
+	int mcount = 2;
 	int* gray = getGrayList(pBlock,1,147,255);
 	if (gray[0] > 240)
 		gray[0] = 255;
-	int* gray_pos_list = matchGray(abc_gray,CHAR_COUNT,gray[0],mcount);
+	int* gray_pos_list = matchGray(abc_gray, ch_count,gray[0],mcount);
 
 	// match vector 
 	int* vec = getVecList(pBlock,1);
@@ -278,7 +291,7 @@ char matchChar(PBLOCK pBlock)
 	// get the min
 	int pos = getMinPos(mv,mcount);
 
-	return abc[gray_pos_list[pos]];
+	return abc_s[gray_pos_list[pos]];
 }
 
 bool readBmp(char *bmpName, PBLOCK &pBlock, int &w_count, int &h_count)
@@ -338,8 +351,27 @@ int main(int argc, char** argv)
 	if (memcmp(argv[1]+strlen(argv[1])-4,".bmp",4)!=0)
 		usage();
 
+	// 
+	ch_count = sizeof(abc_s);
+	for (size_t j = 0; j < ch_count; j++)
+	{
+		for (size_t i = 0; i < CHAR_COUNT; i++)
+		{
+			if (abc[i] == abc_s[j])
+			{
+				abc_i[j] = i;
+				break;
+			}
+		}
+		if (abc_i[j] == -1)
+		{
+			printf("init error\n");
+			return 0;
+		}
+	}		
+
 	// 读取bmp文件
-	PBLOCK pBlock_abc = NULL, pBlock_pic = NULL;
+	PBLOCK pBlock_pic = NULL;
 	int wCount_abc = 0, hCount_abc = 0;
 	int wCount_pic = 0, hCount_pic = 0;
 	if (!readBmp("abc.bmp",pBlock_abc,wCount_abc,hCount_abc))
@@ -354,8 +386,13 @@ int main(int argc, char** argv)
 	}
 
 	// 获取abc的灰度和方向
-	abc_gray = getGrayList(pBlock_abc,CHAR_COUNT,0,255);
-	abc_vec = getVecList(pBlock_abc,CHAR_COUNT);
+	int* gray = getGrayList(pBlock_abc,CHAR_COUNT,0,255);
+	int* vec = getVecList(pBlock_abc,CHAR_COUNT);
+	for (size_t i = 0; i < ch_count; i++)
+	{
+		abc_gray[i] = gray[abc_i[i]];
+		abc_vec[i] = vec[abc_i[i]];
+	}
 
 	// pic 灰度处理 字母匹配
 	unsigned char* chars = new unsigned char[wCount_pic*hCount_pic];
